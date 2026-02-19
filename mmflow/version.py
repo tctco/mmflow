@@ -1,10 +1,22 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 
+<<<<<<< HEAD
 __version__ = '0.5.2'
+=======
+__version__ = '1.0.0rc0'
+>>>>>>> dev
 short_version = __version__
 
 
 def parse_version_info(version_str):
+    """Parse version information.
+
+    Args:
+        version_str (str): version string
+
+    Returns:
+        Tuple: Tuple of version number
+    """
     version_info = []
     for x in version_str.split('.'):
         if x.isdigit():

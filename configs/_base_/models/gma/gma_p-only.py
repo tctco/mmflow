@@ -1,5 +1,13 @@
 model = dict(
     type='RAFT',
+<<<<<<< HEAD
+=======
+    data_preprocessor=dict(
+        type='FlowDataPreprocessor',
+        mean=[127.5, 127.5, 127.5],
+        std=[127.5, 127.5, 127.5],
+        bgr_to_rgb=False),
+>>>>>>> dev
     num_levels=4,
     radius=4,
     cxt_channels=128,

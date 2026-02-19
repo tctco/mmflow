@@ -3,9 +3,16 @@ from math import sqrt
 
 import torch
 from mmcv.cnn import build_activation_layer
+<<<<<<< HEAD
 from mmcv.runner import BaseModule
 
 from mmflow.ops import build_operators
+=======
+from mmengine.model import BaseModule
+from mmengine.runner import autocast
+
+from mmflow.models import build_operators
+>>>>>>> dev
 
 
 class CorrBlock(BaseModule):
@@ -65,7 +72,13 @@ class CorrBlock(BaseModule):
             else:
                 scale_factor = float(C * self.kernel_size**2)
 
+<<<<<<< HEAD
         corr = self.corr_block[0](feat1, feat2) / scale_factor
+=======
+        with autocast(enabled=False):
+            corr = self.corr_block[0](feat1.float(),
+                                      feat2.float()) / scale_factor
+>>>>>>> dev
 
         corr = corr.view(N, -1, H // self.stride, W // self.stride)
 

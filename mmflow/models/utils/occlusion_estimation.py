@@ -4,7 +4,11 @@ from typing import Dict
 import torch
 from torch import Tensor
 
+<<<<<<< HEAD
 from mmflow.ops import build_operators
+=======
+from ..builder import build_components
+>>>>>>> dev
 
 
 def flow_to_coords(flow: Tensor) -> Tensor:
@@ -109,7 +113,11 @@ def forward_backward_consistency(
         Tensor: The forward-to-backward occlusion mask with shape (N, 1, H, W)
     """
 
+<<<<<<< HEAD
     warp = build_operators(warp_cfg)
+=======
+    warp = build_components(warp_cfg)
+>>>>>>> dev
 
     warped_flow_bw = warp(flow_bw, flow_fw)
 
@@ -138,7 +146,11 @@ def forward_backward_absdiff(flow_fw: Tensor,
         Tensor: The forward-to-backward occlusion mask with shape (N, 1, H, W)
     """
 
+<<<<<<< HEAD
     warp = build_operators(warp_cfg)
+=======
+    warp = build_components(warp_cfg)
+>>>>>>> dev
 
     warped_flow_bw = warp(flow_bw, flow_fw)
 

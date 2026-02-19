@@ -1,26 +1,32 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import copy
+<<<<<<< HEAD
 from typing import List, Optional, Sequence, Union
+=======
+from collections import defaultdict
+from pathlib import Path
+from typing import List, Optional, Union
+>>>>>>> dev
 
-import mmcv
 import numpy as np
 import torch
 from mmcv.ops import Correlation
-from mmcv.parallel import collate, scatter
-from mmcv.runner import load_checkpoint
+from mmengine.config import Config
+from mmengine.runner import load_checkpoint
 
-from mmflow.datasets.pipelines import Compose
+from mmflow.datasets.transforms import Compose
 from mmflow.models import build_flow_estimator
+from mmflow.structures import FlowDataSample
 
 
-def init_model(config: Union[str, mmcv.Config],
+def init_model(config: Union[str, Config],
                checkpoint: Optional[str] = None,
                device: str = 'cuda:0',
                cfg_options: Optional[dict] = None) -> torch.nn.Module:
     """Initialize a flow estimator from config file.
 
     Args:
-        config (str or :obj:`mmcv.Config`): Config file path or the config
+        config (str or :obj:`mmengine.Config`): Config file path or the config
             object.
         checkpoint (str, optional): Checkpoint path. If left as None, the model
             will not load any weights. Default to: None.
@@ -31,9 +37,9 @@ def init_model(config: Union[str, mmcv.Config],
         nn.Module: The constructed flow estimator.
     """
 
-    if isinstance(config, str):
-        config = mmcv.Config.fromfile(config)
-    elif not isinstance(config, mmcv.Config):
+    if isinstance(config, (str, Path)):
+        config = Config.fromfile(config)
+    elif not isinstance(config, Config):
         raise TypeError('config must be a filename or Config object, '
                         f'but got {type(config)}')
     if cfg_options is not None:
@@ -51,6 +57,7 @@ def init_model(config: Union[str, mmcv.Config],
     return model
 
 
+<<<<<<< HEAD
 def inference_model(
     model: torch.nn.Module,
     img1s: Union[str, np.ndarray, Sequence[str], Sequence[np.ndarray]],
@@ -58,6 +65,10 @@ def inference_model(
     valids: Optional[Union[str, np.ndarray, Sequence[str],
                            Sequence[np.ndarray]]] = None
 ) -> Union[List[np.ndarray], np.ndarray]:
+=======
+def inference_model(model: torch.nn.Module, img1s: Union[str, np.ndarray],
+                    img2s: Union[str, np.ndarray]) -> List[FlowDataSample]:
+>>>>>>> dev
     """Inference images pairs with the flow estimator.
 
     Args:
@@ -73,24 +84,28 @@ def inference_model(
         If img-pairs is a list or tuple, the same length list type results
         will be returned, otherwise return the flow map from image1 to image2
         directly.
+        List[FlowDataSample]: the predicted flows from img1s to img2s.
+            For a single img-pair, its prediction is in the data field
+            of ``pred_flow_fw`` in FlowDataSample.
     """
-    if isinstance(img1s, (list, tuple)):
-        is_batch = True
-    else:
+    if not isinstance(img1s, (list, tuple)):
         img1s = [img1s]
         img2s = [img2s]
+<<<<<<< HEAD
         valids = [valids]
         is_batch = False
     cfg = model.cfg
     device = next(model.parameters()).device  # model device
+=======
+>>>>>>> dev
 
-    if cfg.data.test.type == 'ConcatDataset':
-        cfg = copy.deepcopy(cfg.data.test.datasets[0])
+    cfg = model.cfg
+    if isinstance(cfg.test_dataloader, list):
+        cfg = copy.deepcopy(cfg.test_dataloader[0].dataset)
     else:
-        cfg = copy.deepcopy(cfg.data.test)
+        cfg = copy.deepcopy(cfg.test_dataloader.dataset)
 
     if isinstance(img1s[0], np.ndarray):
-        # set loading pipeline type
         cfg.pipeline[0].type = 'LoadImageFromWebcam'
 
     # as load annotation is for online evaluation
@@ -100,17 +115,15 @@ def inference_model(
     if dict(type='LoadAnnotations', sparse=True) in cfg.pipeline:
         cfg.pipeline.remove(dict(type='LoadAnnotations', sparse=True))
 
-    if 'flow_gt' in cfg.pipeline[-1]['meta_keys']:
-        cfg.pipeline[-1]['meta_keys'].remove('flow_gt')
-    if 'flow_fw_gt' in cfg.pipeline[-1]['meta_keys']:
-        cfg.pipeline[-1]['meta_keys'].remove('flow_fw_gt')
-    if 'flow_bw_gt' in cfg.pipeline[-1]['meta_keys']:
-        cfg.pipeline[-1]['meta_keys'].remove('flow_bw_gt')
-
     test_pipeline = Compose(cfg.pipeline)
+<<<<<<< HEAD
     datas = []
     valid_masks = []
     for img1, img2, valid in zip(img1s, img2s, valids):
+=======
+    datas = defaultdict(list)
+    for img1, img2 in zip(img1s, img2s):
+>>>>>>> dev
         # prepare data
         if isinstance(valid, str):
             # there is no real example to test the function for loading valid
@@ -121,6 +134,7 @@ def inference_model(
             data = dict(img1=img1, img2=img2, valid=valid)
         else:
             # add information into dict
+<<<<<<< HEAD
             data = dict(
                 img_info=dict(filename1=img1, filename2=img2),
                 img1_prefix=None,
@@ -131,25 +145,27 @@ def inference_model(
         data = test_pipeline(data)
         datas.append(data)
         valid_masks.append(valid)
+=======
+            data = dict(img1_path=img1, img2_path=img2)
+        # build the data pipeline
+        data = test_pipeline(data)
+        datas['inputs'].append(data['inputs'])
+        datas['data_samples'].append(data['data_samples'])
+>>>>>>> dev
 
-    data = collate(datas, samples_per_gpu=len(img1s))
-    # just get the actual data from DataContainer
+    datas = model.data_preprocessor(datas, False)
+    inputs, data_samples = datas['inputs'], datas['data_samples']
 
-    data['img_metas'] = data['img_metas'].data[0]
-    data['imgs'] = data['imgs'].data[0]
-    if next(model.parameters()).is_cuda:
-        # scatter to specified GPU
-        data = scatter(data, [device])[0]
-    else:
-        for m in model.modules():
-            assert not isinstance(
-                m, Correlation
-            ), 'CPU inference with Correlation is not supported currently.'
+    for m in model.modules():
+        assert not isinstance(
+            m, Correlation
+        ), 'CPU inference with Correlation is not supported currently.'
 
     # forward the model
     with torch.no_grad():
-        results = model(test_mode=True, **data)
+        results = model.predict(inputs, data_samples)
 
+<<<<<<< HEAD
     if valid_masks[0] is not None:
         # filter the output flow map
         for result, valid in zip(results, valid_masks):
@@ -166,3 +182,6 @@ def inference_model(
             return results[0]['flow_fw']
     else:
         return results
+=======
+    return results
+>>>>>>> dev

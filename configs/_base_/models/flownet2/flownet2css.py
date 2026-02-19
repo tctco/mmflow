@@ -1,5 +1,12 @@
 model = dict(
     type='FlowNetCSS',
+    data_preprocessor=dict(
+        type='FlowDataPreprocessor',
+        mean=[0., 0., 0.],
+        std=[255., 255., 255.],
+        bgr_to_rgb=False,
+        sigma_range=(0, 0.04),
+        clamp_range=(0., 1.)),
     flownetC=dict(
         type='FlowNetC',
         freeze_net=True,
@@ -130,3 +137,4 @@ model = dict(
         test_cfg=dict()),
     link_cfg=dict(scale_factor=4, mode='bilinear'),
     out_level='level2')
+randomness = dict(seed=0, diff_rank_seed=True)

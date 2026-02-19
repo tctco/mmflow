@@ -1,4 +1,8 @@
 docutils==0.16.0
+<<<<<<< HEAD
+=======
+markdown<3.4.0
+>>>>>>> dev
 myst-parser
 -e git+https://github.com/open-mmlab/pytorch_sphinx_theme.git#egg=pytorch_sphinx_theme
 sphinx==4.0.2

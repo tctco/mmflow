@@ -4,13 +4,21 @@ from typing import Iterator, Optional, Sequence
 
 import torch
 import torch.distributed as dist
+from mmengine.dataset import ConcatDataset
 from torch.utils.data import Dataset
 from torch.utils.data import DistributedSampler as _DistributedSampler
 from torch.utils.data import Sampler
 
+<<<<<<< HEAD
 from mmflow.core.utils import sync_random_seed
 
+=======
+from mmflow.registry import DATA_SAMPLERS
+from mmflow.utils import sync_random_seed
+>>>>>>> dev
 
+
+@DATA_SAMPLERS.register_module()
 class DistributedSampler(_DistributedSampler):
     """DistributedSampler inheriting from
     `torch.utils.data.DistributedSampler`.
@@ -76,11 +84,12 @@ class DistributedSampler(_DistributedSampler):
         return iter(indices)
 
 
+@DATA_SAMPLERS.register_module()
 class MixedBatchDistributedSampler(Sampler):
     """Distributed Sampler for mixed data batch.
 
     Args:
-        datasets (list): List of datasets will be loaded.
+        dataset (ConcatDataset): Dataset that will be loaded.
         sample_ratio (list): List of the ratio of each dataset in a batch, e.g.
             datasets=[DatasetA, DatasetB], sample_ratio=[0.25, 0.75],
             sample_per_gpu=1, gpus=8, it means 2 gpus load DatasetA, and 6 gpus
@@ -98,7 +107,7 @@ class MixedBatchDistributedSampler(Sampler):
     """
 
     def __init__(self,
-                 datasets: Sequence[Dataset],
+                 dataset: ConcatDataset,
                  sample_ratio: Sequence[float],
                  num_replicas: Optional[int] = None,
                  rank: Optional[int] = None,
@@ -108,6 +117,7 @@ class MixedBatchDistributedSampler(Sampler):
         # base class `Sampler` do nothing in `__init__` function
         # super().__init__()
 
+        datasets = dataset.datasets
         assert len(datasets) == len(sample_ratio)
         assert sum(sample_ratio) == 1.
 

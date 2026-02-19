@@ -2,13 +2,19 @@
 from typing import Dict, Optional, Sequence, Union
 
 import torch
-from mmcv.cnn.bricks.conv_module import ConvModule
+from mmcv.cnn import ConvModule
 
+<<<<<<< HEAD
 from ..builder import ENCODERS
 from ..utils import BasicEncoder, CorrBlock
+=======
+from mmflow.registry import MODELS
+from ..utils import CorrBlock
+from .base_encoder import BasicEncoder
+>>>>>>> dev
 
 
-@ENCODERS.register_module()
+@MODELS.register_module()
 class FlowNetEncoder(BasicEncoder):
     """The feature extraction sub-module of FlowNetS and FlowNetC.
 
@@ -63,7 +69,7 @@ class FlowNetEncoder(BasicEncoder):
             init_cfg=init_cfg)
 
 
-@ENCODERS.register_module()
+@MODELS.register_module()
 class CorrEncoder(BasicEncoder):
     """The Correlation feature extraction sub-module of FlowNetC..
 
@@ -169,7 +175,7 @@ class CorrEncoder(BasicEncoder):
         return outs
 
 
-@ENCODERS.register_module()
+@MODELS.register_module()
 class FlowNetSDEncoder(BasicEncoder):
     """The feature extraction sub-module of FlowNetSD.
 

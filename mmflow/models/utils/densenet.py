@@ -4,7 +4,11 @@ from typing import Optional, Sequence, Union
 import torch
 import torch.nn as nn
 from mmcv.cnn import ConvModule
+<<<<<<< HEAD
 from mmcv.runner import BaseModule
+=======
+from mmengine.model import BaseModule
+>>>>>>> dev
 
 
 class DenseLayer(BaseModule):

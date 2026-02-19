@@ -1,13 +1,15 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Dict, Sequence, Tuple
 
 import torch
 from numpy import ndarray
 from torch import Tensor
 
-from mmflow.ops import Warp
-from ..builder import FLOW_ESTIMATORS, build_flow_estimator
+from mmflow.registry import MODELS
+from mmflow.utils import OptSampleList, SampleList, TensorDict
+from ..builder import build_flow_estimator
 from ..decoders.maskflownet_decoder import Upsample
+from ..utils import Warp
 from .pwcnet import PWCNet
 
 
@@ -28,22 +30,22 @@ def centralize(img1: Tensor, img2: Tensor) -> Tuple[Tensor, Tensor]:
     return img1 - rgb_mean, img2 - rgb_mean, rgb_mean
 
 
-@FLOW_ESTIMATORS.register_module()
+@MODELS.register_module()
 class MaskFlowNetS(PWCNet):
     """MaskFlowNetS model."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def extract_feat(self, imgs: Tensor) -> Tuple[Dict[str, Tensor]]:
+    def extract_feat(self, imgs: Tensor) -> Sequence[TensorDict]:
         """Extract features from images.
 
         Args:
             imgs (Tensor): The concatenated input images.
 
         Returns:
-            Tuple[Dict[str, Tensor], Dict[str, Tensor]]: The feature pyramid of
-                the first input image and the feature pyramid of secode input
+            Tuple[TensorDict, TensorDict]: The feature pyramid of
+                the first input image and the feature pyramid of seconde input
                 image.
         """
         in_channels = self.encoder.in_channels
@@ -53,7 +55,7 @@ class MaskFlowNetS(PWCNet):
         return self.encoder(img1), self.encoder(img2)
 
 
-@FLOW_ESTIMATORS.register_module()
+@MODELS.register_module()
 class MaskFlowNet(MaskFlowNetS):
     """MaskFlowNet model."""
 
@@ -68,18 +70,15 @@ class MaskFlowNet(MaskFlowNetS):
         self.out_level = out_level
         self.flow_div = self.decoder.flow_div
 
-    def extract_feat(
-        self, imgs: Tensor
-    ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor], Dict[str, Tensor], Dict[
-            str, Tensor], Dict[str, Tensor]]:
+    def extract_feat(self, imgs: Tensor) -> Sequence[TensorDict]:
         """Extract features from images.
 
         Args:
             imgs (Tensor): The concatenated input images.
 
         Returns:
-            Tuple[Dict[str, Tensor], Dict[str, Tensor], Dict[str, Tensor],
-                Dict[str, Tensor], Dict[str, Tensor]]: The feature pyramid of
+            Tuple[TensorDict, TensorDict, TensorDict,
+                TensorDict, TensorDict]: The feature pyramid of
                 the first input image and the feature pyramid of secode input
                 image in stage1 and stage2 of MaskFlownet, and estimated
                 multi-level flow from the stage1.
@@ -90,8 +89,7 @@ class MaskFlowNet(MaskFlowNetS):
         img1, img2, _ = centralize(img1, img2)
 
         feat1, feat2 = self.maskflownetS.extract_feat(imgs)
-        flows_stage1, mask_stage1 = self.maskflownetS.decoder(
-            feat1, feat2, return_mask=True)
+        flows_stage1, mask_stage1 = self.maskflownetS.decoder(feat1, feat2)
 
         img1 = torch.cat((img1, torch.zeros_like(mask_stage1)), dim=1)
         warped_img2 = Warp(align_corners=True)(
@@ -101,53 +99,43 @@ class MaskFlowNet(MaskFlowNetS):
         return feat1, feat2, self.encoder(img1), self.encoder(
             img2), flows_stage1
 
-    def forward_train(
-            self,
-            imgs: Tensor,
-            flow_gt: Tensor,
-            valid: Optional[Tensor] = None,
-            img_metas: Optional[Sequence[dict]] = None) -> Dict[str, Tensor]:
+    def loss(self, imgs: Tensor, data_samples: SampleList) -> TensorDict:
         """Forward function for PWCNet when model training.
 
         Args:
             imgs (Tensor): The concatenated input images.
-            flow_gt (Tensor): The ground truth of optical flow.
-                Defaults to None.
-            valid (Tensor, optional): The valid mask. Defaults to None.
-            img_metas (Sequence[dict], optional): meta data of image to revert
-                the flow to original ground truth size. Defaults to None.
+            data_samples (list[:obj:`FlowDataSample`]): Each item contains the
+                meta information of each image and corresponding annotations.
 
         Returns:
-            Dict[str, Tensor]: The losses of output.
+            TensorDict: The losses of output.
         """
         feat1, feat2, feat3, feat4, flows_stage1 = self.extract_feat(imgs)
-        return self.decoder.forward_train(
+        return self.decoder.loss(
             feat1=feat1,
             feat2=feat2,
             feat3=feat3,
             feat4=feat4,
             flows_stage1=flows_stage1,
-            flow_gt=flow_gt,
-            valid=valid)
+            data_samples=data_samples)
 
-    def forward_test(
-        self,
-        imgs: Tensor,
-        img_metas: Optional[Sequence[dict]] = None
+    def predict(
+            self,
+            imgs: Tensor,
+            data_samples: OptSampleList = None
     ) -> Sequence[Dict[str, ndarray]]:
         """Forward function for PWCNet when model testing.
 
         Args:
             imgs (Tensor): The concatenated input images.
-            img_metas (Sequence[dict], optional): meta data of image to revert
-                the flow to original ground truth size. Defaults to None.
+            data_samples (list[:obj:`FlowDataSample`], optional): Each item
+                contains the meta information of each image and corresponding
+                annotations. Defaults to None.
 
         Returns:
-            Sequence[Dict[str, ndarray]]: the batch of predicted optical flow
-                with the same size of images after augmentation.
+            Sequence[FlowDataSample]: The batch of predicted optical flow
+                with the same size of images before augmentation.
         """
-
-        H, W = imgs.shape[2:]
         feat1, feat2, feat3, feat4, flows_stage1 = self.extract_feat(imgs)
-        return self.decoder.forward_test(feat1, feat2, feat3, feat4,
-                                         flows_stage1, H, W, img_metas)
+        return self.decoder.predict(feat1, feat2, feat3, feat4, flows_stage1,
+                                    data_samples)

@@ -1,16 +1,19 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import math
-from typing import Dict, Optional, Sequence, Union
+from typing import Optional, Sequence, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from mmcv.cnn import ConvModule
-from mmcv.runner import BaseModule
+from mmengine.model import BaseModule
+from torch import Tensor
 
-from mmflow.ops import build_operators
-from ..builder import DECODERS, build_loss
+from mmflow.registry import MODELS
+from mmflow.utils import SampleList, TensorDict, TensorList
+from mmflow.utils.typing import OptSampleList
+from ..builder import build_components, build_loss
+from ..utils import unpack_flow_data_samples
 from .base_decoder import BaseDecoder
 
 
@@ -30,8 +33,7 @@ class CorrelationPyramid(BaseModule):
         self.pool = nn.AvgPool2d(kernel_size=2, stride=2)
         self.num_levels = num_levels
 
-    def forward(self, feat1: torch.Tensor,
-                feat2: torch.Tensor) -> Sequence[torch.Tensor]:
+    def forward(self, feat1: Tensor, feat2: Tensor) -> TensorList:
         """Forward function for Correlation pyramid.
 
         Args:
@@ -131,6 +133,7 @@ class MotionEncoder(BaseModule):
     def _make_encoder(self, in_channel: int, channels: int, kernels: int,
                       paddings: int, conv_cfg: dict, norm_cfg: dict,
                       act_cfg: dict) -> None:
+        """Make encoder."""
         encoder = []
 
         for ch, k, p in zip(channels, kernels, paddings):
@@ -223,6 +226,7 @@ class ConvGRU(BaseModule):
         self.conv_q = nn.ModuleList(conv_q)
 
     def init_weights(self) -> None:
+        """Weights initialization."""
 
         def weights_init(m):
             classname = m.__class__.__name__
@@ -286,11 +290,12 @@ class XHead(BaseModule):
             raise ValueError(f'x must be \'flow\' or \'mask\', but got {x}')
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward Function."""
         x = self.layers(x)
         return self.predict_layer(x)
 
 
-@DECODERS.register_module()
+@MODELS.register_module()
 class RAFTDecoder(BaseDecoder):
     """The decoder of RAFT Net.
 
@@ -349,7 +354,7 @@ class RAFTDecoder(BaseDecoder):
         self.iters = iters
         self.mask_channels = mask_channels * (2 * radius + 1)
         corr_op_cfg['radius'] = radius
-        self.corr_lookup = build_operators(corr_op_cfg)
+        self.corr_lookup = build_components(corr_op_cfg)
         self.encoder = MotionEncoder(
             num_levels=num_levels,
             radius=radius,
@@ -367,16 +372,29 @@ class RAFTDecoder(BaseDecoder):
 
         if flow_loss is not None:
             self.flow_loss = build_loss(flow_loss)
+        self.flow_div = 1.
 
     def make_gru_block(self):
+<<<<<<< HEAD
+=======
+        """Make GRU block.
+
+        Returns:
+            Module: The GRU block.
+        """
+>>>>>>> dev
         return ConvGRU(
             self.h_channels,
             self.encoder.out_channels[0] + 2 + self.cxt_channels,
             net_type=self.gru_type)
 
+<<<<<<< HEAD
     def _upsample(self,
                   flow: torch.Tensor,
                   mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+=======
+    def _upsample(self, flow: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+>>>>>>> dev
         """Upsample flow field [H/8, W/8, 2] -> [H, W, 2] using convex
         combination.
 
@@ -396,7 +414,7 @@ class RAFTDecoder(BaseDecoder):
             new_size = (scale * H, scale * W)
             return scale * F.interpolate(
                 flow, size=new_size, mode='bilinear', align_corners=True)
-        # predict a (Nx8×8×9xHxW) mask
+        # predict a (Nx8x8x9xHxW) mask
         mask = mask.view(N, 1, grid_size, scale, scale, H, W)
         mask = torch.softmax(mask, dim=2)
 
@@ -411,16 +429,15 @@ class RAFTDecoder(BaseDecoder):
         upflow = upflow.permute(0, 1, 4, 2, 5, 3)
         return upflow.reshape(N, 2, scale * H, scale * W)
 
-    def forward(self, feat1: torch.Tensor, feat2: torch.Tensor,
-                flow: torch.Tensor, h: torch.Tensor,
-                cxt_feat: torch.Tensor) -> Sequence[torch.Tensor]:
+    def forward(self, feat1: Tensor, feat2: Tensor, flow: Tensor,
+                h_feat: Tensor, cxt_feat: Tensor) -> TensorList:
         """Forward function for RAFTDecoder.
 
         Args:
             feat1 (Tensor): The feature from the first input image.
             feat2 (Tensor): The feature from the second input image.
             flow (Tensor): The initialized flow when warm start.
-            h (Tensor): The hidden state for GRU cell.
+            h_feat (Tensor): The hidden state for GRU cell.
             cxt_feat (Tensor): The contextual feature from the first image.
 
         Returns:
@@ -435,13 +452,13 @@ class RAFTDecoder(BaseDecoder):
             corr = self.corr_lookup(corr_pyramid, flow)
             motion_feat = self.encoder(corr, flow)
             x = torch.cat([cxt_feat, motion_feat], dim=1)
-            h = self.gru(h, x)
+            h_feat = self.gru(h_feat, x)
 
-            delta_flow = self.flow_pred(h)
+            delta_flow = self.flow_pred(h_feat)
             flow = flow + delta_flow
 
             if hasattr(self, 'mask_pred'):
-                mask = .25 * self.mask_pred(h)
+                mask = .25 * self.mask_pred(h_feat)
             else:
                 mask = None
 
@@ -450,15 +467,15 @@ class RAFTDecoder(BaseDecoder):
 
         return upflow_preds
 
-    def forward_train(
-            self,
-            feat1: torch.Tensor,
-            feat2: torch.Tensor,
-            flow: torch.Tensor,
-            h_feat: torch.Tensor,
-            cxt_feat: torch.Tensor,
-            flow_gt: torch.Tensor,
-            valid: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+    def loss(
+        self,
+        feat1: Tensor,
+        feat2: Tensor,
+        flow: Tensor,
+        h_feat: Tensor,
+        cxt_feat: Tensor,
+        data_samples: SampleList,
+    ) -> TensorList:
         """Forward function when model training.
 
         Args:
@@ -467,9 +484,8 @@ class RAFTDecoder(BaseDecoder):
             flow (Tensor): The last estimated flow from GRU cell.
             h (Tensor): The hidden state for GRU cell.
             cxt_feat (Tensor): The contextual feature from the first image.
-            flow_gt (Tensor): The ground truth of optical flow.
-                Defaults to None.
-            valid (Tensor, optional): The valid mask. Defaults to None.
+            data_samples (list[:obj:`FlowDataSample`]): Each item contains the
+                meta information of each image and corresponding annotations.
 
         Returns:
             Dict[str, Tensor]: The losses of model.
@@ -477,15 +493,15 @@ class RAFTDecoder(BaseDecoder):
 
         flow_pred = self.forward(feat1, feat2, flow, h_feat, cxt_feat)
 
-        return self.losses(flow_pred, flow_gt, valid=valid)
+        return self.loss_by_feat(flow_pred, data_samples)
 
-    def forward_test(self,
-                     feat1: torch.Tensor,
-                     feat2: torch.Tensor,
-                     flow: torch.Tensor,
-                     h_feat: torch.Tensor,
-                     cxt_feat: torch.Tensor,
-                     img_metas=None) -> Sequence[Dict[str, np.ndarray]]:
+    def predict(self,
+                feat1: Tensor,
+                feat2: Tensor,
+                flow: Tensor,
+                h_feat: Tensor,
+                cxt_feat: Tensor,
+                data_samples: OptSampleList = None) -> SampleList:
         """Forward function when model training.
 
         Args:
@@ -494,38 +510,35 @@ class RAFTDecoder(BaseDecoder):
             flow (Tensor): The last estimated flow from GRU cell.
             h (Tensor): The hidden state for GRU cell.
             cxt_feat (Tensor): The contextual feature from the first image.
-            img_metas (Sequence[dict], optional): meta data of image to revert
-                the flow to original ground truth size. Defaults to None.
+            data_samples (list[:obj:`FlowDataSample`], optional): Each item
+                contains the meta information of each image and corresponding
+                annotations. Defaults to None.
 
         Returns:
-            Sequence[Dict[str, ndarray]]: The batch of predicted optical flow
+            Sequence[FlowDataSample]: The batch of predicted optical flow
                 with the same size of images before augmentation.
         """
         flow_pred = self.forward(feat1, feat2, flow, h_feat, cxt_feat)
 
         flow_result = flow_pred[-1]
-        # flow maps with the shape [H, W, 2]
-        flow_result = flow_result.permute(0, 2, 3, 1).cpu().data.numpy()
-        # unravel batch dim
-        flow_result = list(flow_result)
-        flow_result = [dict(flow=f) for f in flow_result]
-        return self.get_flow(flow_result, img_metas=img_metas)
+        return self.predict_by_feat(flow_result, data_samples)
 
-    def losses(self,
-               flow_pred: Sequence[torch.Tensor],
-               flow_gt: torch.Tensor,
-               valid: torch.Tensor = None) -> Dict[str, torch.Tensor]:
+    def loss_by_feat(self, flow_pred: TensorList,
+                     data_samples: SampleList) -> TensorDict:
         """Compute optical flow loss.
 
         Args:
-            flow_pred (Sequence[Tensor]): The list of predicted optical flow.
-            flow_gt (Tensor): The ground truth of optical flow.
-            valid (Tensor, optional): The valid mask. Defaults to None.
+            flow_pred (Dict[str, Tensor]): multi-level predicted optical flow.
+            data_samples (list[:obj:`FlowDataSample`]): Each item contains the
+                meta information of each image and corresponding annotations.
 
         Returns:
             Dict[str, Tensor]: The dict of losses.
         """
 
         loss = dict()
-        loss['loss_flow'] = self.flow_loss(flow_pred, flow_gt, valid)
+        batch_gt_flow_fw, _, _, _, batch_gt_valid_fw, _ = \
+            unpack_flow_data_samples(data_samples)
+        loss['loss_flow'] = self.flow_loss(flow_pred, batch_gt_flow_fw,
+                                           batch_gt_valid_fw)
         return loss

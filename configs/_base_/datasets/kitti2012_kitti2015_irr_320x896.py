@@ -1,5 +1,3 @@
-img_norm_cfg = dict(mean=[0., 0., 0.], std=[255., 255., 255.], to_rgb=False)
-
 crop_size = (320, 896)
 
 global_transform = dict(
@@ -24,8 +22,6 @@ sparse_train_pipeline = [
         saturation=0.25,
         hue=0.1),
     dict(type='RandomGamma', gamma_range=(0.7, 1.5)),
-    dict(type='Normalize', **img_norm_cfg),
-    dict(type='GaussianNoise', sigma_range=(0, 0.04), clamp_range=(0., 1.)),
     dict(type='RandomFlip', prob=0.5, direction='horizontal'),
     dict(type='RandomFlip', prob=0.5, direction='vertical'),
     dict(
@@ -34,31 +30,14 @@ sparse_train_pipeline = [
         relative_transform=relative_transform,
         check_bound=True),
     dict(type='RandomCrop', crop_size=crop_size),
-    dict(type='DefaultFormatBundle'),
-    dict(
-        type='Collect',
-        keys=['imgs', 'flow_gt', 'valid'],
-        meta_keys=[
-            'img_fields', 'ann_fields', 'filename1', 'filename2',
-            'ori_filename1', 'ori_filename2', 'filename_flow',
-            'ori_filename_flow', 'ori_shape', 'img_shape', 'img_norm_cfg'
-        ]),
+    dict(type='PackFlowInputs')
 ]
 
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', sparse=True),
     dict(type='InputResize', exponent=6),
-    dict(type='Normalize', **img_norm_cfg),
-    dict(type='TestFormatBundle'),
-    dict(
-        type='Collect',
-        keys=['imgs'],
-        meta_keys=[
-            'flow_gt', 'valid', 'filename1', 'filename2', 'ori_filename1',
-            'ori_filename2', 'ori_shape', 'img_shape', 'img_norm_cfg',
-            'scale_factor', 'pad_shape'
-        ])
+    dict(type='PackFlowInputs')
 ]
 
 kitti2015_train = dict(
@@ -71,20 +50,21 @@ kitti2015_val_test = dict(
     type='KITTI2015',
     data_root='data/kitti2015',
     pipeline=test_pipeline,
-    test_mode=True)
+    test_mode=False)
 
 kitti2012_train = dict(
     type='KITTI2012',
     data_root='data/kitti2012',
     pipeline=sparse_train_pipeline,
-    test_mode=False),
+    test_mode=False)
 
 kitti2012_val_test = dict(
     type='KITTI2012',
     data_root='data/kitti2012',
     pipeline=test_pipeline,
-    test_mode=True)
+    test_mode=False)
 
+<<<<<<< HEAD
 data = dict(
     train_dataloader=dict(
         samples_per_gpu=1,
@@ -107,3 +87,42 @@ data = dict(
         type='ConcatDataset',
         datasets=[kitti2015_val_test, kitti2012_val_test],
         separate_eval=True))
+=======
+train_dataloader = dict(
+    batch_size=1,
+    num_workers=5,
+    sampler=dict(type='InfiniteSampler', shuffle=True),
+    drop_last=True,
+    persistent_workers=True,
+    dataset=dict(
+        type='ConcatDataset', datasets=[kitti2015_train, kitti2012_train]))
+val_dataloader = [
+    dict(
+        batch_size=1,
+        num_workers=2,
+        sampler=dict(type='DefaultSampler', shuffle=False),
+        drop_last=False,
+        persistent_workers=True,
+        dataset=kitti2015_val_test),
+    dict(
+        batch_size=1,
+        num_workers=2,
+        sampler=dict(type='DefaultSampler', shuffle=False),
+        drop_last=False,
+        persistent_workers=True,
+        dataset=kitti2012_val_test)
+]
+test_dataloader = val_dataloader
+
+val_evaluator = [
+    [
+        dict(type='EndPointError', prefix='KITTI2015'),
+        dict(type='FlowOutliers', prefix='KITTI2015')
+    ],
+    [
+        dict(type='EndPointError', prefix='KITTI2012'),
+        dict(type='FlowOutliers', prefix='KITTI2012')
+    ],
+]
+test_evaluator = val_evaluator
+>>>>>>> dev

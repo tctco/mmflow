@@ -1,5 +1,12 @@
 model = dict(
     type='FlowNetC',
+    data_preprocessor=dict(
+        type='FlowDataPreprocessor',
+        mean=[0., 0., 0.],
+        std=[255., 255., 255.],
+        bgr_to_rgb=False,
+        sigma_range=(0, 0.04),
+        clamp_range=(0., 1.)),
     encoder=dict(
         type='FlowNetEncoder',
         in_channels=3,
@@ -68,3 +75,4 @@ model = dict(
     ],  # model training and testing settings
     train_cfg=dict(),
     test_cfg=dict())
+randomness = dict(seed=0, diff_rank_seed=True)

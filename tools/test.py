@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import argparse
 import os
+<<<<<<< HEAD
 import warnings
 
 import mmcv
@@ -20,25 +21,34 @@ from mmflow.datasets import build_dataloader, build_dataset
 from mmflow.datasets.utils.flow_io import write_flow, write_flow_kitti
 from mmflow.models import build_flow_estimator
 from mmflow.utils import get_root_logger, setup_multi_processes
+=======
+import os.path as osp
+
+from mmengine.config import Config, DictAction
+from mmengine.runner import Runner
+
+from mmflow.utils import register_all_modules
+>>>>>>> dev
 
 
+# TODO: support fuse_conv_bn and format_only
 def parse_args():
     parser = argparse.ArgumentParser(
-        description=('Test (and eval)'
-                     ' a flow estimator'))
+        description='MMFlow test (and eval) a model')
     parser.add_argument('config', help='test config file path')
     parser.add_argument('checkpoint', help='checkpoint file')
-    parser.add_argument('--out-dir', help='directory to save the flow file')
     parser.add_argument(
-        '--sparse-flow',
+        '--work-dir',
+        help='the directory to save the file containing evaluation metrics')
+    parser.add_argument(
+        '--show',
         action='store_true',
-        help='Whether The evaluation dataset is a sparse optical flow dataset')
+        help='show prediction results at runtime, available when `--show-dir` '
+        'is not specified')
     parser.add_argument(
-        '--fuse-conv-bn',
-        action='store_true',
-        help='Whether to fuse conv and bn, this will slightly increase'
-        'the inference speed')
+        '--show-dir', help='directory where painted images will be saved. ')
     parser.add_argument(
+<<<<<<< HEAD
         '--eval', type=str, nargs='+', help='evaluation metrics, e.g., "EPE"')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument(
@@ -57,6 +67,9 @@ def parse_args():
         '--tmpdir',
         help='tmp directory used for collecting results from multiple '
         'workers, available when gpu-collect is not specified')
+=======
+        '--wait-time', type=float, default=2, help='the interval of show (s)')
+>>>>>>> dev
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -76,47 +89,80 @@ def parse_args():
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
-
     return args
 
 
 def main():
     args = parse_args()
+    # register all modules in mmflow into the registries
+    # do not init the default scope here because it will be init in the runner
+    register_all_modules(init_default_scope=False)
 
-    assert args.out_dir or args.eval or args.show_dir, \
-        ('Please specify at least one operation (save/eval/show the '
-         'results / save the results) with the argument "--out-dir", "--eval"'
-         ', "--show" or "--show-dir"')
-
-    if args.out_dir is not None:
-        mmcv.mkdir_or_exist(args.out_dir)
-
+    # load config
     cfg = Config.fromfile(args.config)
+    cfg.launcher = args.launcher
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
+<<<<<<< HEAD
 
     if cfg.get('custom_imports', None):
         from mmcv.utils import import_modules_from_strings
         import_modules_from_strings(**cfg['custom_imports'])
     if cfg.get('cudnn_benchmark', False):
         torch.backends.cudnn.benchmark = True
+=======
+>>>>>>> dev
 
-    # in case the test dataset is concatenated
-    if isinstance(cfg.data.test, dict):
-        cfg.data.test.test_mode = True
-    elif isinstance(cfg.data.test, list):
-        for ds_cfg in cfg.data.test:
-            ds_cfg.test_mode = True
+    # work_dir is determined in this priority: CLI > segment in file > filename
+    if args.work_dir is not None:
+        # update configs according to CLI args if args.work_dir is not None
+        cfg.work_dir = args.work_dir
+    elif cfg.get('work_dir', None) is None:
+        # use config filename as default work_dir if cfg.work_dir is None
+        cfg.work_dir = osp.join('./work_dirs',
+                                osp.splitext(osp.basename(args.config))[0])
 
+    cfg.load_from = args.checkpoint
+
+    if args.show or args.show_dir:
+        cfg = trigger_visualization_hook(cfg, args)
+
+    # build the runner from config
+    runner = Runner.from_cfg(cfg)
+
+    # start testing
+    runner.test()
+
+
+def trigger_visualization_hook(cfg, args):
+    default_hooks = cfg.default_hooks
+    if 'visualization' in default_hooks:
+        visualization_hook = default_hooks['visualization']
+        visualization_hook['draw'] = True
+        # Turn on visualization
+        if args.show_dir:
+            visualization_hook['show'] = False
+            visualizer = cfg.visualizer
+            visualizer['save_dir'] = args.show_dir
+        elif args.show:
+            visualization_hook['show'] = True
+            visualization_hook['wait_time'] = args.wait_time
+
+<<<<<<< HEAD
     cfg.gpu_ids = [args.gpu_id]
 
     # init distributed env first, since logger depends on the dist info.
     if args.launcher == 'none':
         distributed = False
+=======
+>>>>>>> dev
     else:
-        distributed = True
-        init_dist(args.launcher, **cfg.dist_params)
+        raise RuntimeError(
+            'VisualizationHook must be included in default_hooks.'
+            'refer to usage '
+            '"visualization=dict(type=\'VisualizationHook\')"')
 
+<<<<<<< HEAD
     # set multi-process settings
     setup_multi_processes(cfg)
 
@@ -207,6 +253,9 @@ def main():
                 f'{online_evaluation(model, i_data_loader, metric=args.eval)}'
                 '\n',
                 logger=get_root_logger())
+=======
+    return cfg
+>>>>>>> dev
 
 
 if __name__ == '__main__':

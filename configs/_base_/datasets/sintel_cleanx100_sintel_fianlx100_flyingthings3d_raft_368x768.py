@@ -1,6 +1,3 @@
-img_norm_cfg = dict(
-    mean=[127.5, 127.5, 127.5], std=[127.5, 127.5, 127.5], to_rgb=False)
-
 crop_size = (368, 768)
 
 # Sintel config
@@ -27,31 +24,13 @@ sintel_train_pipeline = [
     dict(type='RandomFlip', prob=0.5, direction='horizontal'),
     dict(type='RandomFlip', prob=0.1, direction='vertical'),
     dict(type='Validation', max_flow=1000.),
-    dict(type='Normalize', **img_norm_cfg),
-    dict(type='DefaultFormatBundle'),
-    dict(
-        type='Collect',
-        keys=['imgs', 'flow_gt', 'valid'],
-        meta_keys=[
-            'filename1', 'filename2', 'ori_filename1', 'ori_filename2',
-            'filename_flow', 'ori_filename_flow', 'ori_shape', 'img_shape',
-            'erase_bounds', 'erase_num', 'scale_factor'
-        ])
+    dict(type='PackFlowInputs')
 ]
 sintel_test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations'),
     dict(type='InputPad', exponent=3),
-    dict(type='Normalize', **img_norm_cfg),
-    dict(type='TestFormatBundle'),
-    dict(
-        type='Collect',
-        keys=['imgs'],
-        meta_keys=[
-            'flow_gt', 'filename1', 'filename2', 'ori_filename1',
-            'ori_filename2', 'ori_shape', 'img_shape', 'img_norm_cfg',
-            'scale_factor', 'pad_shape', 'pad'
-        ])
+    dict(type='PackFlowInputs')
 ]
 
 sintel_clean_train = dict(
@@ -76,13 +55,13 @@ sintel_clean_test = dict(
     type='Sintel',
     pipeline=sintel_test_pipeline,
     data_root='data/Sintel',
-    test_mode=True,
+    test_mode=False,
     pass_style='clean')
 sintel_final_test = dict(
     type='Sintel',
     pipeline=sintel_test_pipeline,
     data_root='data/Sintel',
-    test_mode=True,
+    test_mode=False,
     pass_style='final')
 
 # Flyingthings3d config
@@ -109,16 +88,7 @@ flyingthing3d_train_pipeline = [
     dict(type='RandomFlip', prob=0.5, direction='horizontal'),
     dict(type='RandomFlip', prob=0.1, direction='vertical'),
     dict(type='Validation', max_flow=1000.),
-    dict(type='Normalize', **img_norm_cfg),
-    dict(type='DefaultFormatBundle'),
-    dict(
-        type='Collect',
-        keys=['imgs', 'flow_gt', 'valid'],
-        meta_keys=[
-            'filename1', 'filename2', 'ori_filename1', 'ori_filename2',
-            'filename_flow', 'ori_filename_flow', 'ori_shape', 'img_shape',
-            'erase_bounds', 'erase_num', 'scale_factor'
-        ])
+    dict(type='PackFlowInputs')
 ]
 flyingthings3d_clean_train = dict(
     type='FlyingThings3D',
@@ -126,8 +96,10 @@ flyingthings3d_clean_train = dict(
     pipeline=flyingthing3d_train_pipeline,
     test_mode=False,
     pass_style='clean',
-    scene='left')
+    scene='left',
+    double=True)
 
+<<<<<<< HEAD
 data = dict(
     train_dataloader=dict(
         samples_per_gpu=2,
@@ -146,10 +118,40 @@ data = dict(
         flyingthings3d_clean_train
     ],
     val=dict(
+=======
+train_dataloader = dict(
+    batch_size=2,
+    num_workers=5,
+    sampler=dict(type='InfiniteSampler', shuffle=True),
+    drop_last=True,
+    persistent_workers=True,
+    dataset=dict(
+>>>>>>> dev
         type='ConcatDataset',
-        datasets=[sintel_clean_test, sintel_final_test],
-        separate_eval=True),
-    test=dict(
-        type='ConcatDataset',
-        datasets=[sintel_clean_test, sintel_final_test],
-        separate_eval=True))
+        datasets=[
+            sintel_clean_train_x100, sintel_final_train_x100,
+            flyingthings3d_clean_train
+        ]))
+
+val_dataloader = [
+    dict(
+        batch_size=1,
+        num_workers=2,
+        sampler=dict(type='DefaultSampler', shuffle=False),
+        drop_last=False,
+        persistent_workers=True,
+        dataset=sintel_clean_test),
+    dict(
+        batch_size=1,
+        num_workers=2,
+        sampler=dict(type='DefaultSampler', shuffle=False),
+        drop_last=False,
+        persistent_workers=True,
+        dataset=sintel_final_test)
+]
+test_dataloader = val_dataloader
+val_evaluator = [
+    dict(type='EndPointError', prefix='clean'),
+    dict(type='EndPointError', prefix='final')
+]
+test_evaluator = val_evaluator

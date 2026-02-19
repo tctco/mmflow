@@ -17,15 +17,20 @@
     </sup>
   </div>
   <div>&nbsp;</div>
+<<<<<<< HEAD
+=======
+</div>
+>>>>>>> dev
 
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mmflow)](https://pypi.org/project/mmflow/)
 [![PyPI](https://img.shields.io/pypi/v/mmflow)](https://pypi.org/project/mmflow)
-[![docs](https://img.shields.io/badge/docs-latest-blue)](https://mmflow.readthedocs.io/en/latest/)
+[![docs](https://img.shields.io/badge/docs-latest-blue)](https://mmflow.readthedocs.io/en/1.x/)
 [![badge](https://github.com/open-mmlab/mmflow/workflows/build/badge.svg)](https://github.com/open-mmlab/mmflow/actions)
 [![codecov](https://codecov.io/gh/open-mmlab/mmflow/branch/master/graph/badge.svg)](https://codecov.io/gh/open-mmlab/mmflow)
-[![license](https://img.shields.io/github/license/open-mmlab/mmflow.svg)](https://github.com/open-mmlab/mmflow/blob/master/LICENSE)
+[![license](https://img.shields.io/github/license/open-mmlab/mmflow.svg)](https://github.com/open-mmlab/mmflow/blob/1.x/LICENSE)
 [![open issues](https://isitmaintained.com/badge/open/open-mmlab/mmflow.svg)](https://github.com/open-mmlab/mmflow/issues)
 
+<<<<<<< HEAD
 [📘使用文档](https://mmflow.readthedocs.io/en/latest/) |
 [🛠️安装教程](https://mmflow.readthedocs.io/en/latest/install.html) |
 [👀模型库](https://mmflow.readthedocs.io/en/latest/model_zoo.html) |
@@ -34,6 +39,9 @@
 </div>
 
 <div align="center">
+=======
+文档: <https://mmflow.readthedocs.io/en/dev-1.x>
+>>>>>>> dev
 
 [English](README.md) | 简体中文
 
@@ -43,7 +51,7 @@
 
 MMFlow 是一款基于 PyTorch 的光流工具箱，是 [OpenMMLab](http://openmmlab.org/) 项目的成员之一。
 
-主分支代码目前支持 **PyTorch 1.5 以上**的版本。
+1.x 分支代码目前支持 **PyTorch 1.6 以上**的版本。
 
 <https://user-images.githubusercontent.com/76149310/141947796-af4f1e67-60c9-48ed-9dd6-fcd809a7d991.mp4>
 
@@ -64,6 +72,7 @@ MMFlow 是一款基于 PyTorch 的光流工具箱，是 [OpenMMLab](http://openm
 
 ## 更新日志
 
+<<<<<<< HEAD
 最新的 v0.5.2 版本已经在 2023.01.10 发布:
 
 - 支持 flow1d 中注意力机制
@@ -92,6 +101,22 @@ MMFlow 也提供了其他更详细的教程，包括：
 - [添加新模型](docs/en/tutorials/4_new_modules.md)
 
 - [自定义模型运行参数](docs/en/tutorials/5_customize_runtime.md)。
+=======
+最新版本 v1.0.0rc0 在 2022.8.31 发布。
+如果想了解更多版本更新细节和历史信息，请阅读[更新日志](docs/en/notes/changelog.md)。
+
+## 安装
+
+请参考[安装文档](docs/en/install.md)进行安装, 参考[数据准备](docs/en/user_guides/2_dataset_prepare.md)准备数据集。
+
+## 快速入门
+
+请参考[概述](docs/zh_cn/overview.md)对 MMFlow 进行初步了解
+
+请参考[用户指南](https://mmflow.readthedocs.io/zh_CN/1.x/user_guides/index.html)了解 mmflow 的基本使用，以及[进阶指南](https://mmflow.readthedocs.io/zh_CN/1.x/advanced_guides/index.html)深入了解 mmflow 设计和代码实现。
+
+若需要将 0.x 版本的代码迁移至新版，请参考[迁移文档](docs/zh_cn/migration.md)
+>>>>>>> dev
 
 ## 基准测试和模型库
 
@@ -111,7 +136,7 @@ MMFlow 也提供了其他更详细的教程，包括：
 
 ## 贡献指南
 
-我们感谢所有的贡献者为改进和提升 MMFlow 所作出的努力。请参考[贡献指南](https://github.com/open-mmlab/mmcv/blob/master/CONTRIBUTING.md)来了解参与项目贡献的相关指引。
+我们感谢所有的贡献者为改进和提升 MMFlow 所作出的努力。请参考[贡献指南](CONTRIBUTING.md)来了解参与项目贡献的相关指引。
 
 ## 引用
 
@@ -132,6 +157,7 @@ MMFlow 也提供了其他更详细的教程，包括：
 
 ## OpenMMLab 的其他项目
 
+- [MMEngine](https://github.com/open-mmlab/mmengine): OpenMMLab 深度学习模型训练库
 - [MMCV](https://github.com/open-mmlab/mmcv): OpenMMLab 计算机视觉基础库
 - [MIM](https://github.com/open-mmlab/mim): MIM 是 OpenMMlab 项目、算法、模型的统一入口
 - [MMClassification](https://github.com/open-mmlab/mmclassification): OpenMMLab 图像分类工具箱
@@ -154,7 +180,11 @@ MMFlow 也提供了其他更详细的教程，包括：
 
 ## 欢迎加入 OpenMMLab 社区
 
+<<<<<<< HEAD
 扫描下方的二维码可关注 OpenMMLab 团队的 [知乎官方账号](https://www.zhihu.com/people/openmmlab)，加入 OpenMMLab 团队的 [官方交流 QQ 群](https://jq.qq.com/?_wv=1027&k=aCvMxdr3)或联络 OpenMMLab 官方微信小助手
+=======
+扫描下方的二维码可关注 OpenMMLab 团队的 [知乎官方账号](https://www.zhihu.com/people/openmmlab)，加入 OpenMMLab 团队的 [官方交流 QQ 群](https://jq.qq.com/?_wv=1027&k=aCvMxdr3)
+>>>>>>> dev
 
 <div align="center">
 <img src="resources/zhihu_qrcode.jpg" height="400" />  <img src="resources/qq_group_qrcode.png" height="400" />

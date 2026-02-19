@@ -1,5 +1,12 @@
 model = dict(
     type='MaskFlowNetS',
+    data_preprocessor=dict(
+        type='FlowDataPreprocessor',
+        mean=[0., 0., 0.],
+        std=[255., 255., 255.],
+        bgr_to_rgb=False,
+        sigma_range=(0, 0.04),
+        clamp_range=(0., 1.)),
     freeze_net=False,
     encoder=dict(
         type='PWCNetEncoder',
@@ -42,3 +49,4 @@ model = dict(
     test_cfg=dict(),
     init_cfg=dict(
         type='Kaiming', a=0.1, distribution='uniform', layer='Conv2d'))
+randomness = dict(seed=0, diff_rank_seed=True)

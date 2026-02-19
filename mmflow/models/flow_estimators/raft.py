@@ -1,15 +1,17 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
-from numpy import ndarray
+from torch import Tensor
 
-from ..builder import FLOW_ESTIMATORS, build_encoder
+from mmflow.registry import MODELS
+from mmflow.utils import OptSampleList, SampleList, TensorDict, TensorList
+from ..builder import build_encoder
 from .pwcnet import PWCNet
 
 
-@FLOW_ESTIMATORS.register_module()
+@MODELS.register_module()
 class RAFT(PWCNet):
     """RAFT model.
 
@@ -48,13 +50,13 @@ class RAFT(PWCNet):
             self.freeze_bn()
 
     def freeze_bn(self) -> None:
+        """Set batch normalization layer evaluation mode."""
         for m in self.modules():
             if isinstance(m, nn.BatchNorm2d):
                 m.eval()
 
-    def extract_feat(
-        self, imgs: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def extract_feat(self,
+                     imgs: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         """Extract features from images.
 
         Args:
@@ -80,62 +82,82 @@ class RAFT(PWCNet):
 
         return feat1, feat2, h_feat, cxt_feat
 
-    def forward_train(
-            self,
-            imgs: torch.Tensor,
-            flow_gt: torch.Tensor,
-            valid: torch.Tensor,
-            flow_init: Optional[torch.Tensor] = None,
-            img_metas: Optional[Sequence[dict]] = None
-    ) -> Dict[str, torch.Tensor]:
+    def loss(
+        self,
+        inputs: Tensor,
+        data_samples: SampleList,
+        flow_init: Optional[Tensor] = None,
+    ) -> TensorDict:
         """Forward function for RAFT when model training.
 
         Args:
-            imgs (Tensor): The concatenated input images.
-            flow_gt (Tensor): The ground truth of optical flow.
-                Defaults to None.
-            valid (Tensor, optional): The valid mask. Defaults to None.
+            inputs (Tensor): The concatenated input images.
+            data_samples (list[:obj:`FlowDataSample`]): Each item contains the
+                meta information of each image and corresponding annotations.
             flow_init (Tensor, optional): The initialized flow when warm start.
                 Default to None.
-            img_metas (Sequence[dict], optional): meta data of image to revert
-                the flow to original ground truth size. Defaults to None.
 
         Returns:
             Dict[str, Tensor]: The losses of output.
         """
 
-        feat1, feat2, h_feat, cxt_feat = self.extract_feat(imgs)
+        feat1, feat2, h_feat, cxt_feat = self.extract_feat(inputs)
         B, _, H, W = feat1.shape
 
         if flow_init is None:
             flow_init = torch.zeros((B, 2, H, W), device=feat1.device)
 
-        return self.decoder.forward_train(
+        return self.decoder.loss(
             feat1,
             feat2,
             flow=flow_init,
             h_feat=h_feat,
             cxt_feat=cxt_feat,
-            flow_gt=flow_gt,
-            valid=valid)
+            data_samples=data_samples)
 
-    def forward_test(
-            self,
-            imgs: torch.Tensor,
-            flow_init: Optional[torch.Tensor] = None,
-            img_metas: Optional[Sequence[dict]] = None) -> Sequence[ndarray]:
+    def _forward(self,
+                 inputs: Tensor,
+                 data_samples: OptSampleList = None,
+                 flow_init=None) -> TensorList:
+        """_summary_
+
+        Args:
+            inputs (torch.Tensor): The input tensor with shape
+                (N, C, ...) in general.
+            data_samples (list[:obj:`FlowDataSample`], optional): Each item
+                contains the meta information of each image and corresponding
+                annotations. Defaults to None.
+            flow_init (Tensor, optional): The initialized flow when warm start.
+                Default to None.
+        Returns:
+            TensorList: The list of tensor.
+        """
+        feat1, feat2, h_feat, cxt_feat = self.extract_feat(inputs)
+        B, _, H, W = feat1.shape
+
+        if flow_init is None:
+            flow_init = torch.zeros((B, 2, H, W), device=feat1.device)
+
+        return self.decoder(
+            feat1, feat2, flow=flow_init, h_feat=h_feat, cxt_feat=cxt_feat)
+
+    def predict(self,
+                imgs: Tensor,
+                data_samples: OptSampleList = None,
+                flow_init: Optional[Tensor] = None) -> SampleList:
         """Forward function for RAFT when model testing.
 
         Args:
             imgs (Tensor): The concatenated input images.
+            data_samples (list[:obj:`FlowDataSample`], optional): Each item
+                contains the meta information of each image and corresponding
+                annotations. Defaults to None.
             flow_init (Tensor, optional): The initialized flow when warm start.
                 Default to None.
-            img_metas (Sequence[dict], optional): meta data of image to revert
-                the flow to original ground truth size. Defaults to None.
 
         Returns:
-            Sequence[Dict[str, ndarray]]: the batch of predicted optical flow
-                with the same size of images after augmentation.
+            Sequence[FlowDataSample]: The batch of predicted optical flow
+                with the same size of images before augmentation.
         """
         train_iter = self.decoder.iters
         if self.test_cfg is not None and self.test_cfg.get(
@@ -148,13 +170,21 @@ class RAFT(PWCNet):
         if flow_init is None:
             flow_init = torch.zeros((B, 2, H, W), device=feat1.device)
 
+<<<<<<< HEAD
         results = self.decoder.forward_test(
+=======
+        results = self.decoder.predict(
+>>>>>>> dev
             feat1=feat1,
             feat2=feat2,
             flow=flow_init,
             h_feat=h_feat,
             cxt_feat=cxt_feat,
+<<<<<<< HEAD
             img_metas=img_metas)
+=======
+            data_samples=data_samples)
+>>>>>>> dev
         # recover iter in train
         self.decoder.iters = train_iter
 

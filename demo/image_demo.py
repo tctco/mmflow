@@ -2,10 +2,11 @@
 import os.path as osp
 from argparse import ArgumentParser
 
-import mmcv
+from mmengine.utils import mkdir_or_exist
 
 from mmflow.apis import inference_model, init_model
 from mmflow.datasets import visualize_flow, write_flow
+from mmflow.utils import register_all_modules
 
 
 def parse_args():
@@ -32,14 +33,24 @@ def parse_args():
 
 
 def main(args):
+    # register all modules in mmflow into the registries
+    register_all_modules()
+
     # build the model from a config file and a checkpoint file
     model = init_model(args.config, args.checkpoint, device=args.device)
     # test a single image
+<<<<<<< HEAD
     result = inference_model(model, args.img1, args.img2, valids=args.valid)
+=======
+    result = inference_model(model, args.img1, args.img2)
+    # get prediction from result and convert to np
+    pred_flow_fw = result[0].pred_flow_fw.data.permute(1, 2, 0).cpu().numpy()
+>>>>>>> dev
     # save the results
-    mmcv.mkdir_or_exist(args.out_dir)
-    visualize_flow(result, osp.join(args.out_dir, f'{args.out_prefix}.png'))
-    write_flow(result, osp.join(args.out_dir, f'{args.out_prefix}.flo'))
+    mkdir_or_exist(args.out_dir)
+    visualize_flow(pred_flow_fw,
+                   osp.join(args.out_dir, f'{args.out_prefix}.png'))
+    write_flow(pred_flow_fw, osp.join(args.out_dir, f'{args.out_prefix}.flo'))
 
 
 if __name__ == '__main__':

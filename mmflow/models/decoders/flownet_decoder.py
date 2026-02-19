@@ -1,14 +1,16 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import Dict, Optional, Sequence, Tuple, Union
+from typing import Dict, Optional, Sequence, Tuple
 
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from mmcv.cnn import build_activation_layer, build_norm_layer
-from mmcv.runner import BaseModule
+from mmengine.model import BaseModule
+from torch import Tensor
 
-from ..builder import DECODERS, build_loss
+from mmflow.registry import MODELS
+from mmflow.utils import OptSampleList, SampleList, TensorDict
+from ..builder import build_loss
+from ..utils import unpack_flow_data_samples
 from .base_decoder import BaseDecoder
 
 
@@ -64,7 +66,7 @@ class DeconvModule(BaseModule):
 
         self.deconvs = nn.Sequential(*deconvs)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         """Forward function for deconvolution module.
 
         Args:
@@ -163,9 +165,7 @@ class BasicBlock(BaseModule):
                 padding=1,
                 bias=upsample_bias)
 
-    def forward(
-            self, x: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         """Forward function for basic block of FlowNetDecoder.
 
         Args:
@@ -185,7 +185,7 @@ class BasicBlock(BaseModule):
         return flow, upflow, upfeat
 
 
-@DECODERS.register_module()
+@MODELS.register_module()
 class FlowNetSDecoder(BaseDecoder):
     """The decoder of FlowNetS.
 
@@ -263,13 +263,12 @@ class FlowNetSDecoder(BaseDecoder):
             ])
         self.decoders = nn.ModuleDict(layers)
 
-    def forward(self, feat: Dict[str,
-                                 torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def forward(self, feat: TensorDict) -> TensorDict:
         """Forward function for decoder of FlowNetS.
 
         Args:
-            feat (Dict[str, Tensor]): Input feature pyramid which is encoded
-                images.
+            feat (Dict[str, Tensor]): The feature pyramid extracted from the
+                concatenated inputs.
 
         Returns:
             Dict[str, Tensor]: Multi-level predicted optical flow.
@@ -291,110 +290,73 @@ class FlowNetSDecoder(BaseDecoder):
 
         return flow_pred
 
-    def forward_train(
-            self,
-            *args,
-            flow_gt: Optional[torch.Tensor] = None,
-            valid: torch.Tensor = None,
-            return_multi_level_flow: bool = False) -> Dict[str, torch.Tensor]:
+    def loss(self, feat: TensorDict, data_samples: SampleList) -> TensorDict:
         """Forward function for decoder of FlowNetS when model training.
 
         Args:
-            flow_gt (Tensor, optional): The ground truth of optical flow.
-                Defaults to None.
-            valid (Tensor, optional): The valid mask. Defaults to None.
-            return_multi_level_flow (bool, optional): The flag to control
-                whether do not calculate the loss and  only return the
-                multi-level optical flow from forward function. If set True,
-                this model is a sub-model in Flownet2 and do not calculate the
-                loss. Defaults to False.
+            feat (Dict[str, Tensor]): The feature pyramid extracted from the
+                concatenated inputs.
+            data_samples (list[:obj:`FlowDataSample`]): Each item contains the
+                meta information of each image and corresponding annotations.
 
         Returns:
             Dict[str, Tensor]: The losses of output or multi-level predicted
                 optical flow.
         """
 
-        flow_pred = self.forward(*args)
+        flow_pred = self.forward(feat)
 
-        if return_multi_level_flow:
-            return flow_pred
+        return self.loss_by_feat(flow_pred, data_samples)
 
-        return self.losses(flow_pred, flow_gt, valid)
-
-    def forward_test(
-        self,
-        *args,
-        H: int,
-        W: int,
-        return_multi_level_flow: bool = False,
-        img_metas: Optional[Sequence[dict]] = None
-    ) -> Union[Dict[str, torch.Tensor], Sequence[Dict[str, np.ndarray]]]:
-        """Forward function for decoder of FlowNetS when model testint.
+    def predict(self,
+                feat: TensorDict,
+                data_samples: OptSampleList = None) -> SampleList:
+        """Forward function for decoder of FlowNetS when model testing.
 
         Args:
-            H (int): The height of images after data augmentation.
-            W (int): The width of images after data augmentation.
-            return_multi_level_flow (bool, optional): The flag to control
-                whether do not calculate the loss and  only return the
-                multi-level optical flow from forward function. If set True,
-                this model is a sub-model in Flownet2 and do not calculate the
-                loss. Defaults to False.
-            img_metas (Sequence[dict], optional): meta data of image to revert
-                the flow to original ground truth size. Defaults to None.
+            feat (Dict[str, Tensor]): The feature pyramid extracted from the
+                concatenated inputs.
+            data_samples (list[:obj:`FlowDataSample`], optional): Each item
+                contains the meta information of each image and corresponding
+                annotations. Defaults to None.
 
         Returns:
-            Union[Dict[str, Tensor], Sequence[Dict[str, ndarray]]]: multi-level
-                predicted optical flow or the predicted optical flow with the
-                same size of images before augmentation.
+            Sequence[FlowDataSample]: The batch of predicted optical flow
+                with the same size of images before augmentation.
         """
 
-        flow_pred = self.forward(*args)
+        flow_pred = self.forward(feat)
+        flow_results = flow_pred[self.end_level]
 
-        # it must be one of estimator in flownet2
-        if return_multi_level_flow:
-            return flow_pred
+        return self.predict_by_feat(flow_results, data_samples)
 
-        flow_result = flow_pred[self.end_level]
-        # resize flow to the size of images after augmentation.
-        flow_result = F.interpolate(
-            flow_result, size=(H, W), mode='bilinear', align_corners=False)
-        # reshape [2, H, W] to [H, W, 2]
-        flow_result = flow_result.permute(0, 2, 3,
-                                          1).cpu().data.numpy() * self.flow_div
-        # unravel batch dim
-        flow_result = list(flow_result)
-        flow_result = [dict(flow=f) for f in flow_result]
-
-        return self.get_flow(flow_result, img_metas=img_metas)
-
-    def losses(self,
-               flow_pred: Dict[str, torch.Tensor],
-               flow_gt: torch.Tensor,
-               valid: torch.Tensor = None) -> Dict[str, torch.Tensor]:
-        """The loss function for Flownet.
+    def loss_by_feat(self, flow_pred: TensorDict,
+                     data_samples: SampleList) -> TensorDict:
+        """The loss function for FlowNet.
 
         Args:
             flow_pred (Dict[str, Tensor]): multi-level predicted optical flow.
-            flow_gt (Tensor): The ground truth of optical flow.
-            valid (Tensor, optional): The valid mask. Defaults to None.
-
+            data_samples (list[:obj:`FlowDataSample`]): Each item contains the
+                meta information of each image and corresponding annotations.
         Returns:
             Dict[str, Tensor]: The dict of losses.
         """
         loss = dict()
-        loss['loss_flow'] = self.flow_loss(flow_pred, flow_gt, valid)
+        batch_gt_flow_fw, _, _, _, batch_gt_valid_fw, _ = \
+            unpack_flow_data_samples(data_samples)
+        loss['loss_flow'] = self.flow_loss(flow_pred, batch_gt_flow_fw,
+                                           batch_gt_valid_fw)
         return loss
 
 
-@DECODERS.register_module()
+@MODELS.register_module()
 class FlowNetCDecoder(FlowNetSDecoder):
     """The decoder of FlowNetS."""
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def forward(self, feat1: Dict[str, torch.Tensor],
-                corr_feat: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def forward(self, feat1: TensorDict, corr_feat: TensorDict) -> TensorDict:
         """Forward function for decoder of FlowNetS.
 
         Args:
@@ -425,3 +387,51 @@ class FlowNetCDecoder(FlowNetSDecoder):
             flow_pred[level] = flow
 
         return flow_pred
+
+    def loss(self, feat1: TensorDict, corr_feat: TensorDict,
+             data_samples: SampleList) -> TensorDict:
+        """Forward function for decoder of FlowNetS when model training.
+
+        Args:
+            feat1 (Dict[str, Tensor]): Input feature pyramid which is encoded
+                image1.
+            corr_feat (Dict[str, Tensor]): Input feature pyramid which is
+                encoded correlation of feature1 and feature2 that are the third
+                -level feature of image1 and image2.
+            data_samples (list[:obj:`FlowDataSample`]): Each item contains the
+                meta information of each image and corresponding annotations.
+
+        Returns:
+            Dict[str, Tensor]: The losses of output or multi-level predicted
+                optical flow.
+        """
+
+        flow_pred = self.forward(feat1, corr_feat)
+
+        return self.loss_by_feat(flow_pred, data_samples)
+
+    def predict(self,
+                feat1: TensorDict,
+                corr_feat: TensorDict,
+                data_samples: OptSampleList = None) -> SampleList:
+        """Forward function for decoder of FlowNetS when model testing.
+
+        Args:
+            feat1 (Dict[str, Tensor]): Input feature pyramid which is encoded
+                image1.
+            corr_feat (Dict[str, Tensor]): Input feature pyramid which is
+                encoded correlation of feature1 and feature2 that are the third
+                -level feature of image1 and image2.
+            data_samples (list[:obj:`FlowDataSample`], optional): Each item
+                contains the meta information of each image and corresponding
+                annotations. Defaults to None.
+
+        Returns:
+            Sequence[FlowDataSample]: The batch of predicted optical flow
+                with the same size of images before augmentation.
+        """
+
+        flow_pred = self.forward(feat1, corr_feat)
+        flow_results = flow_pred[self.end_level]
+
+        return self.predict_by_feat(flow_results, data_samples)

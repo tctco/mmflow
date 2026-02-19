@@ -1,12 +1,20 @@
+# training schedule for pwc-net+ schedule
+train_cfg = dict(by_epoch=False, max_iters=750000, val_interval=50000)
+val_cfg = dict(type='MultiValLoop')
+test_cfg = dict(type='MultiTestLoop')
+
 # optimizer
-optimizer = dict(type='Adam', lr=5e-5, weight_decay=0.0004, betas=(0.9, 0.999))
-optimizer_config = dict(grad_clip=None)
+optim_wrapper = dict(
+    type='OptimWrapper',
+    optimizer=dict(
+        type='Adam', lr=5e-5, weight_decay=0.0004, betas=(0.9, 0.999)))
+
 # learning policy
-lr_config = dict(
-    policy='MultiStage',
+param_scheduler = dict(
+    type='MultiStageLR',
     by_epoch=False,
     gammas=[0.5, 0.5, 0.5, 0.5, 0.5],
-    milestone_lrs=[5e-5, 3e-5, 2e-5, 1e-5, 5e-6],
+    milestone_params=[5e-5, 3e-5, 2e-5, 1e-5, 5e-6],
     milestone_iters=[0, 150000, 300000, 450000, 600000],
     steps=[[
         45000, 65000, 85000, 95000, 97500, 100000, 110000, 120000, 130000,
@@ -29,6 +37,10 @@ lr_config = dict(
                730000, 740000
            ]])
 
-runner = dict(type='IterBasedRunner', max_iters=750000)
-checkpoint_config = dict(by_epoch=False, interval=50000)
-evaluation = dict(interval=50000, metric='EPE')
+default_hooks = dict(
+    timer=dict(type='IterTimerHook'),
+    logger=dict(type='LoggerHook', interval=50, log_metric_by_epoch=False),
+    param_scheduler=dict(type='ParamSchedulerHook'),
+    checkpoint=dict(type='CheckpointHook', interval=50000, by_epoch=False),
+    sampler_seed=dict(type='DistSamplerSeedHook'),
+    visualization=dict(type='FlowVisualizationHook'))

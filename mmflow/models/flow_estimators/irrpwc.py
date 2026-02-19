@@ -1,25 +1,24 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from collections import OrderedDict
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Tuple
 
 import torch
 import torch.distributed as dist
-from numpy import ndarray
 from torch import Tensor
 
-from ..builder import FLOW_ESTIMATORS
+from mmflow.registry import MODELS
+from mmflow.utils import TensorDict
 from .pwcnet import PWCNet
 
 
-@FLOW_ESTIMATORS.register_module()
+@MODELS.register_module()
 class IRRPWC(PWCNet):
     """IRR-PWC model."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def extract_feat(
-            self, imgs: Tensor) -> Tuple[Dict[str, Tensor], Dict[str, Tensor]]:
+    def extract_feat(self, imgs: Tensor) -> Tuple[TensorDict, TensorDict]:
         """Extract features from images.
 
         Args:
@@ -27,7 +26,7 @@ class IRRPWC(PWCNet):
 
         Returns:
             Tuple[Dict[str, Tensor], Dict[str, Tensor]]: The feature pyramid of
-                the first input image and the feature pyramid of secode input
+                the first input image and the feature pyramid of seconds input
                 image.
         """
         in_channels = self.encoder.in_channels
@@ -38,73 +37,6 @@ class IRRPWC(PWCNet):
         feat1['level0'] = img1
         feat2['level0'] = img2
         return feat1, feat2
-
-    def forward_train(
-            self,
-            imgs: Tensor,
-            flow_fw_gt: Optional[Tensor] = None,
-            flow_bw_gt: Optional[Tensor] = None,
-            occ_fw_gt: Optional[Tensor] = None,
-            occ_bw_gt: Optional[Tensor] = None,
-            flow_gt: Optional[Tensor] = None,
-            occ_gt: Optional[Tensor] = None,
-            valid: Optional[Tensor] = None,
-            img_metas: Optional[Sequence[dict]] = None) -> Dict[str, Tensor]:
-        """Forward function for IRR-PWC when model training.
-
-        Args:
-            imgs (Tensor): The concatenated input images.
-            flow_fw_gt (Tensor, optional): The ground truth of optical flow
-                from image1 to image2. Defaults to None.
-            flow_bw_gt (Tensor, optional): The ground truth of optical flow
-                from image2 to image1. Defaults to None.
-            occ_fw_gt (Tensor, optional): The ground truth of occlusion mask
-                from image1 to image2. Defaults to None.
-            occ_bw_gt (Tensor, optional): The ground truth of occlusion mask
-                from image2 to image1. Defaults to None.
-            flow_gt (Tensor, optional): The ground truth of optical flow
-                from image1 to image2. Defaults to None.
-            occ_gt (Tensor, optional): The ground truth of occlusion mask from
-                image1 to image2. Defaults to None.
-            valid (Tensor, optional): The valid mask of optical flow ground
-                truth. Defaults to None.
-            img_metas (Sequence[dict], optional): meta data of image to revert
-                the flow to original ground truth size. Defaults to None.
-
-        Returns:
-            Dict[str, Tensor]: The dict of losses.
-        """
-        feat1, feat2 = self.extract_feat(imgs)
-        return self.decoder.forward_train(
-            feat1,
-            feat2,
-            flow_fw_gt=flow_fw_gt,
-            flow_bw_gt=flow_bw_gt,
-            occ_fw_gt=occ_fw_gt,
-            occ_bw_gt=occ_bw_gt,
-            flow_gt=flow_gt,
-            occ_gt=occ_gt,
-            valid=valid)
-
-    def forward_test(
-            self,
-            imgs: Tensor,
-            img_metas: Optional[Sequence[dict]] = None) -> Sequence[ndarray]:
-        """Forward function for IRR-PWC when model testing.
-
-        Args:
-            imgs (Tensor): The concatenated input images.
-            img_metas (Sequence[dict], optional): meta data of image to revert
-                the flow to original ground truth size. Defaults to None.
-
-        Returns:
-            Sequence[Dict[str, ndarray]]: the batch of predicted optical flow
-                with the same size of images after augmentation.
-        """
-        H, W = imgs.shape[2:]
-        feat1, feat2 = self.extract_feat(imgs)
-        return self.decoder.forward_test(
-            feat1, feat2, H, W, img_metas=img_metas)
 
     @staticmethod
     def _parse_losses(losses):

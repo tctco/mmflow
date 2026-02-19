@@ -1,6 +1,9 @@
+<<<<<<< HEAD
 img_norm_cfg = dict(
     mean=[127.5, 127.5, 127.5], std=[127.5, 127.5, 127.5], to_rgb=False)
 
+=======
+>>>>>>> dev
 crop_size = (288, 960)
 
 # KITTI config
@@ -24,6 +27,7 @@ kitti_train_pipeline = [
         max_scale=0.4,
         max_stretch=0.2),
     dict(type='RandomCrop', crop_size=crop_size),
+<<<<<<< HEAD
     dict(type='Normalize', **img_norm_cfg),
     dict(type='DefaultFormatBundle'),
     dict(
@@ -34,6 +38,9 @@ kitti_train_pipeline = [
             'filename_flow', 'ori_filename_flow', 'ori_shape', 'img_shape',
             'erase_bounds', 'erase_num', 'scale_factor'
         ])
+=======
+    dict(type='PackFlowInputs')
+>>>>>>> dev
 ]
 kitti_train = dict(
     type='KITTI2015',
@@ -45,6 +52,7 @@ kitti_test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', sparse=True),
     dict(type='InputPad', exponent=3),
+<<<<<<< HEAD
     dict(type='Normalize', **img_norm_cfg),
     dict(type='TestFormatBundle'),
     dict(
@@ -55,12 +63,16 @@ kitti_test_pipeline = [
             'ori_filename2', 'ori_shape', 'img_shape', 'img_norm_cfg',
             'scale_factor', 'pad_shape', 'pad'
         ])
+=======
+    dict(type='PackFlowInputs')
+>>>>>>> dev
 ]
 
 kitti2015_val_test = dict(
     type='KITTI2015',
     data_root='data/kitti2015',
     pipeline=kitti_test_pipeline,
+<<<<<<< HEAD
     test_mode=True)
 
 data = dict(
@@ -79,3 +91,28 @@ data = dict(
     train=kitti_train,
     val=kitti2015_val_test,
     test=kitti2015_val_test)
+=======
+    test_mode=False)
+
+train_dataloader = dict(
+    batch_size=2,
+    num_workers=5,
+    sampler=dict(type='InfiniteSampler', shuffle=True),
+    drop_last=True,
+    persistent_workers=True,
+    dataset=kitti_train)
+val_dataloader = dict(
+    batch_size=1,
+    num_workers=2,
+    sampler=dict(type='DefaultSampler', shuffle=False),
+    drop_last=False,
+    persistent_workers=True,
+    dataset=kitti2015_val_test)
+test_dataloader = val_dataloader
+
+val_evaluator = [
+    dict(type='EndPointError', prefix='KITTI2015'),
+    dict(type='FlowOutliers', prefix='KITTI2015')
+]
+test_evaluator = val_evaluator
+>>>>>>> dev

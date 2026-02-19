@@ -1,18 +1,11 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import platform
-import random
-from functools import partial
-from typing import Optional, Sequence, Union
+from typing import Optional
 
-import mmcv
-import numpy as np
-import torch
-from mmcv.parallel import collate
-from mmcv.runner import get_dist_info
-from mmcv.utils import Registry, build_from_cfg
-from torch.utils.data import DataLoader, Dataset
+from mmengine.config import Config
+from torch.utils.data import Dataset
 
-from .samplers import DistributedSampler, MixedBatchDistributedSampler
+from mmflow.registry import DATASETS
 
 if platform.system() != 'Windows':
     # https://github.com/pytorch/pytorch/issues/973
@@ -23,39 +16,22 @@ if platform.system() != 'Windows':
     soft_limit = min(max(4096, base_soft_limit), hard_limit)
     resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
-DATASETS = Registry('dataset')
-PIPELINES = Registry('pipeline')
 
-
-def build_dataset(cfg: Union[mmcv.Config, Sequence[mmcv.Config]],
-                  default_args: Optional[dict] = None) -> Dataset:
+def build_dataset(cfg: Config, default_args: Optional[dict] = None) -> Dataset:
     """Build Pytorch dataset.
 
     Args:
-        cfg (mmcv.Config): Config dict of dataset or list of config dict.
-            It should at least contain the key "type".
+        cfg (mmengine.Config): Config dict of dataset. It should at
+            least contain the key "type".
         default_args (dict, optional): Default initialization arguments.
-
-    .. note::
-        If the input config is a list, this function will concatenate them
-        automatically.
 
     Returns:
         dataset: The built dataset based on the input config.
     """
-    from .dataset_wrappers import ConcatDataset, RepeatDataset
-    if isinstance(cfg, (list, tuple)):
-        dataset = ConcatDataset([build_dataset(c, default_args) for c in cfg])
-    elif cfg['type'] == 'ConcatDataset':
-        dataset = ConcatDataset(
-            [build_dataset(c, default_args) for c in cfg['datasets']])
-    elif cfg['type'] == 'RepeatDataset':
-        dataset = RepeatDataset(
-            build_dataset(cfg['dataset'], default_args), cfg['times'])
-    else:
-        dataset = build_from_cfg(cfg, DATASETS, default_args)
+    dataset = DATASETS.build(cfg, default_args=default_args)
 
     return dataset
+<<<<<<< HEAD
 
 
 def build_dataloader(dataset: Dataset,
@@ -167,3 +143,5 @@ def worker_init_fn(worker_id: int, num_workers: int, rank: int, seed: int):
     np.random.seed(worker_seed)
     random.seed(worker_seed)
     torch.manual_seed(worker_seed)
+=======
+>>>>>>> dev

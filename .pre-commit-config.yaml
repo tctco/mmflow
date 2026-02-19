@@ -1,6 +1,10 @@
 repos:
   - repo: https://github.com/PyCQA/flake8
+<<<<<<< HEAD
     rev: 5.0.4
+=======
+    rev: 3.8.3
+>>>>>>> dev
     hooks:
       - id: flake8
   - repo: https://github.com/PyCQA/isort

@@ -1,15 +1,20 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import Dict, Optional, Sequence, Tuple, Union
+from typing import Dict, Optional, Sequence, Tuple
 
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from mmcv.runner import BaseModule
+from mmengine.model import BaseModule
 
+<<<<<<< HEAD
 from mmflow.ops.builder import build_operators
 from ..builder import DECODERS, build_components, build_loss
 from ..utils import BasicDenseBlock, CorrBlock
+=======
+from mmflow.registry import MODELS
+from mmflow.utils import OptMultiConfig, OptSampleList, SampleList, TensorDict
+from ..builder import build_components, build_loss
+from ..utils import BasicDenseBlock, CorrBlock, unpack_flow_data_samples
+>>>>>>> dev
 from .base_decoder import BaseDecoder
 
 
@@ -39,7 +44,7 @@ class PWCModule(BaseModule):
                  conv_cfg: Optional[dict] = None,
                  norm_cfg: Optional[dict] = None,
                  act_cfg: dict = dict(type='LeakyReLU', negative_slope=0.1),
-                 init_cfg: Optional[Union[dict, list]] = None) -> None:
+                 init_cfg: OptMultiConfig = None) -> None:
         super().__init__(init_cfg=init_cfg)
 
         self.up_flow = up_flow
@@ -54,11 +59,12 @@ class PWCModule(BaseModule):
         self._make_upsample_layer()
 
     def _make_predict_layer(self) -> torch.nn.Module:
+        """Make prediction layer."""
         self.predict_layer = nn.Conv2d(
             self.last_channels, 2, kernel_size=3, padding=1)
 
     def _make_upsample_layer(self) -> torch.nn.Module:
-
+        """Make upsample  layers."""
         if self.up_flow:
             self.upflow_layer = nn.ConvTranspose2d(
                 2, 2, kernel_size=4, stride=2, padding=1)
@@ -88,7 +94,7 @@ class PWCModule(BaseModule):
         return flow, feat, upflow, upfeat
 
 
-@DECODERS.register_module()
+@MODELS.register_module()
 class PWCNetDecoder(BaseDecoder):
     """The Decoder of PWC-Net.
 
@@ -132,7 +138,7 @@ class PWCNetDecoder(BaseDecoder):
                  act_cfg: dict = dict(type='LeakyReLU', negative_slope=0.1),
                  post_processor: dict = None,
                  flow_loss: Optional[dict] = None,
-                 init_cfg: Optional[Union[list, dict]] = None) -> None:
+                 init_cfg: OptMultiConfig = None) -> None:
 
         assert isinstance(in_channels, dict)
 
@@ -226,10 +232,9 @@ class PWCNetDecoder(BaseDecoder):
         Args:
             warp_cfg (dict): Config for warp operation.
         """
-        self.warp = build_operators(warp_cfg)
+        self.warp = build_components(warp_cfg)
 
-    def forward(self, feat1: Dict[str, torch.Tensor],
-                feat2: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def forward(self, feat1: TensorDict, feat2: TensorDict) -> TensorDict:
         """Forward function for PWCNetDecoder.
 
         Args:
@@ -268,12 +273,8 @@ class PWCNetDecoder(BaseDecoder):
 
         return flow_pred
 
-    def forward_train(
-            self,
-            feat1: Dict[str, torch.Tensor],
-            feat2: Dict[str, torch.Tensor],
-            flow_gt: torch.Tensor,
-            valid: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+    def loss(self, feat1: TensorDict, feat2: TensorDict,
+             data_samples: SampleList) -> TensorDict:
         """Forward function when model training.
 
         Args:
@@ -281,26 +282,20 @@ class PWCNetDecoder(BaseDecoder):
                 image.
             feat2 (Dict[str, Tensor]): The feature pyramid from the second
                 image.
-            flow_gt (Tensor): The ground truth of optical flow from image1 to
-                image2.
-            valid (Tensor, optional): The valid mask of optical flow ground
-                truth. Defaults to None.
+            data_samples (list[:obj:`FlowDataSample`]): Each item contains the
+                meta information of each image and corresponding annotations.
 
         Returns:
             Dict[str, Tensor]: The dict of losses.
         """
 
         flow_pred = self.forward(feat1, feat2)
-        return self.losses(flow_pred, flow_gt, valid=valid)
+        return self.loss_by_feat(flow_pred, data_samples)
 
-    def forward_test(
-        self,
-        feat1: Dict[str, torch.Tensor],
-        feat2: Dict[str, torch.Tensor],
-        H: int,
-        W: int,
-        img_metas: Optional[Sequence[dict]] = None
-    ) -> Sequence[Dict[str, np.ndarray]]:
+    def predict(self,
+                feat1: TensorDict,
+                feat2: TensorDict,
+                data_samples: OptSampleList = None) -> SampleList:
         """Forward function when model testing.
 
         Args:
@@ -308,46 +303,33 @@ class PWCNetDecoder(BaseDecoder):
                 image.
             feat2 (Dict[str, Tensor]): The feature pyramid from the second
                 image.
-            H (int): The height of images after data augmentation.
-            W (int): The width of images after data augmentation.
-            img_metas (Sequence[dict], optional): meta data of image to revert
-                the flow to original ground truth size. Defaults to None.
+            data_samples (list[:obj:`FlowDataSample`], optional): Each item
+                contains the meta information of each image and corresponding
+                annotations. Defaults to None.
         Returns:
-            Sequence[Dict[str, ndarray]]: The batch of predicted optical flow
+            Sequence[FlowDataSample]: The batch of predicted optical flow
                 with the same size of images before augmentation.
         """
 
         flow_pred = self.forward(feat1, feat2)
-        flow_result = flow_pred[self.end_level]
+        flow_results = flow_pred[self.end_level]
+        return self.predict_by_feat(flow_results, data_samples)
 
-        # resize flow to the size of images after augmentation.
-        flow_result = F.interpolate(
-            flow_result, size=(H, W), mode='bilinear', align_corners=False)
-        # reshape [2, H, W] to [H, W, 2]
-        flow_result = flow_result.permute(0, 2, 3,
-                                          1).cpu().data.numpy() * self.flow_div
-
-        # unravel batch dim,
-        flow_result = list(flow_result)
-        flow_result = [dict(flow=f) for f in flow_result]
-
-        return self.get_flow(flow_result, img_metas=img_metas)
-
-    def losses(
-            self,
-            flow_pred: Dict[str, torch.Tensor],
-            flow_gt: torch.Tensor,
-            valid: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+    def loss_by_feat(self, flow_pred: TensorDict,
+                     data_samples: SampleList) -> TensorDict:
         """Compute optical flow loss.
 
         Args:
             flow_pred (Dict[str, Tensor]): multi-level predicted optical flow.
-            flow_gt (Tensor): The ground truth of optical flow.
-            valid (Tensor, optional): The valid mask. Defaults to None.
+            data_samples (list[:obj:`FlowDataSample`]): Each item contains the
+                meta information of each image and corresponding annotations.
 
         Returns:
             Dict[str, Tensor]: The dict of losses.
         """
         loss = dict()
-        loss['loss_flow'] = self.flow_loss(flow_pred, flow_gt, valid)
+        batch_gt_flow_fw, _, _, _, batch_gt_valid_fw, _ = \
+            unpack_flow_data_samples(data_samples)
+        loss['loss_flow'] = self.flow_loss(flow_pred, batch_gt_flow_fw,
+                                           batch_gt_valid_fw)
         return loss

@@ -17,19 +17,27 @@
     </sup>
   </div>
   <div>&nbsp;</div>
+<<<<<<< HEAD
+=======
+</div>
+>>>>>>> dev
 
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mmflow)](https://pypi.org/project/mmflow/)
 [![PyPI](https://img.shields.io/pypi/v/mmflow)](https://pypi.org/project/mmflow)
-[![docs](https://img.shields.io/badge/docs-latest-blue)](https://mmflow.readthedocs.io/en/latest/)
+[![docs](https://img.shields.io/badge/docs-latest-blue)](https://mmflow.readthedocs.io/en/1.x/)
 [![badge](https://github.com/open-mmlab/mmflow/workflows/build/badge.svg)](https://github.com/open-mmlab/mmflow/actions)
 [![codecov](https://codecov.io/gh/open-mmlab/mmflow/branch/master/graph/badge.svg)](https://codecov.io/gh/open-mmlab/mmflow)
-[![license](https://img.shields.io/github/license/open-mmlab/mmflow.svg)](https://github.com/open-mmlab/mmflow/blob/master/LICENSE)
+[![license](https://img.shields.io/github/license/open-mmlab/mmflow.svg)](https://github.com/open-mmlab/mmflow/blob/1.x/LICENSE)
 [![open issues](https://isitmaintained.com/badge/open/open-mmlab/mmflow.svg)](https://github.com/open-mmlab/mmflow/issues)
 
+<<<<<<< HEAD
 [📘Documentation](https://mmflow.readthedocs.io/en/latest/) |
 [🛠️Installation](https://mmflow.readthedocs.io/en/latest/install.html) |
 [👀Model Zoo](https://mmflow.readthedocs.io/en/latest/model_zoo.html) |
 [🤔Reporting Issues](https://github.com/open-mmlab/mmflow/issues/new/choose)
+=======
+Documentation: <https://mmflow.readthedocs.io/en/1.x>
+>>>>>>> dev
 
 </div>
 
@@ -43,7 +51,7 @@ English | [简体中文](README_zh-CN.md)
 
 MMFlow is an open source optical flow toolbox based on PyTorch. It is a part of the [OpenMMLab](https://openmmlab.com/) project.
 
-The master branch works with **PyTorch 1.5+**.
+The 1.x branch works with **PyTorch 1.6+**.
 
 <https://user-images.githubusercontent.com/76149310/141947796-af4f1e67-60c9-48ed-9dd6-fcd809a7d991.mp4>
 
@@ -65,15 +73,25 @@ The master branch works with **PyTorch 1.5+**.
 
 ## What's New
 
+<<<<<<< HEAD
 **v0.5.2** was released in 01/10/2023:
 
 - Add flow1d attention
 
 Please refer to [changelog.md](docs/en/changelog.md) for details and release history.
+=======
+v1.0.0rc0 was released in 31/8/2022.
+Please refer to [changelog.md](docs/en/notes/changelog.md) for details and release history.
+
+- Unifies interfaces of all components based on MMEngine.
+- Faster training and testing speed with complete support of mixed precision training.
+- Refactored and more flexible architecture.
+>>>>>>> dev
 
 ## Installation
 
 Please refer to [install.md](docs/en/install.md) for installation and
+<<<<<<< HEAD
 guidance in [dataset_prepare](docs/en/dataset_prepare.md) for dataset preparation.
 
 ## Get Started
@@ -93,6 +111,18 @@ Refer to the below tutorials to dive deeper:
 - [add new modules](docs/en/tutorials/4_new_modules.md)
 
 - [customized runtime](docs/en/tutorials/5_customize_runtime.md)
+=======
+guidance in [dataset_prepare](docs/en/user_guides/2_dataset_prepare.md) for dataset preparation.
+
+## Get Started
+
+Please see [Overview](docs/en/overview.md) for the general introduction of MMFlow.
+
+Please see [user guides](https://mmflow.readthedocs.io/en/1.x/user_guides/index.html) for the basic usage of MMFlow.
+There are also [advanced tutorials](https://mmflow.readthedocs.io/en/1.x/advanced_guides/index.html) for in-depth understanding of mmflow design and implementation .
+
+To migrate from MMFlow 0.x, please refer to [migration](docs/en/migration.md).
+>>>>>>> dev
 
 ## Benchmark and model zoo
 
@@ -112,7 +142,7 @@ Supported methods:
 
 ## Contributing
 
-We appreciate all contributions improving MMFlow. Please refer to [CONTRIBUTING.md](https://github.com/open-mmlab/mmcv/blob/master/CONTRIBUTING.md) in MMCV for more details about the contributing guideline.
+We appreciate all contributions improving MMFlow. Please refer to [CONTRIBUTING.md](CONTRIBUTING.md) for more details about the contributing guideline.
 
 ## Acknowledgement
 
@@ -138,6 +168,7 @@ This project is released under the [Apache 2.0 license](LICENSE).
 
 ## Projects in OpenMMLab
 
+- [MMEngine](https://github.com/open-mmlab/mmengine): OpenMMLab foundational library for training deep learning models
 - [MMCV](https://github.com/open-mmlab/mmcv): OpenMMLab foundational library for computer vision.
 - [MIM](https://github.com/open-mmlab/mim): MIM installs OpenMMLab packages.
 - [MMClassification](https://github.com/open-mmlab/mmclassification): OpenMMLab image classification toolbox and benchmark.

@@ -16,5 +16,8 @@ python -m torch.distributed.launch \
     --master_port=$PORT \
     $(dirname "$0")/train.py \
     $CONFIG \
+<<<<<<< HEAD
     --seed 0 \
+=======
+>>>>>>> dev
     --launcher pytorch ${@:3}

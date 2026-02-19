@@ -3,6 +3,7 @@ Welcome to MMFlow's documentation!
 
 .. toctree::
    :maxdepth: 1
+<<<<<<< HEAD
    :caption: Learn the Basics
 
    intro.md
@@ -30,11 +31,48 @@ Welcome to MMFlow's documentation!
    tutorials/3_data_pipeline.md
    tutorials/4_new_modules.md
    tutorials/5_customize_runtime.md
+=======
+   :caption: Get Started
+
+   overview.md
+   get_started.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: User Guides
+
+   user_guides/index.rst
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Advanced Guides
+
+   advanced_guides/index.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Migration
+
+   migration.md
+
+.. toctree::
+   :maxdepth: 1
+   :caption: APIs Reference
+
+   api.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Model Zoo
+
+   model_zoo.md
+>>>>>>> dev
 
 .. toctree::
    :maxdepth: 1
    :caption: Notes
 
+<<<<<<< HEAD
    conventions.md
    changelog.md
    faq.md
@@ -44,6 +82,16 @@ Welcome to MMFlow's documentation!
    :caption: API Reference
 
    api.rst
+=======
+   notes/changelog.md
+   notes/faq.md
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Switch Language
+
+   switch_language.md
+>>>>>>> dev
 
 Indices and tables
 ==================
